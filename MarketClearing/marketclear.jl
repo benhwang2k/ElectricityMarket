@@ -13,6 +13,13 @@ struct PowerPlant
     is_strategic::Bool
 end
 
+struct Consumer 
+    name::String
+    capacity::Float64
+    min_output::Vector{Float64}
+    variable_cost::Vector{Float64}
+end
+
 plants_df = CSV.read("MarketClearing/data/plants.csv", DataFrame)
 plants = PowerPlant[]
 for i in eachindex(plants_df.name)
@@ -30,7 +37,13 @@ for i in eachindex(plants_df.name)
     ))
 end
 
-demands_df = CSV.read("MarketClearing/data/demand.csv", DataFrame)
+consumers_df = CSV.read("MarketClearing/data/consumers.csv", DataFrame)
+consumers = Consumer[]
+for i in 1:size(consumers_df)[1] 
+    push!(consumers, Consumer(consumer_df[1,1], consumer_df[1,2], consumer_df[1,3:(3+T)], consumer_df[1,(3+T+1):(3+2*T+1)]))
+end
+
+
 
 function solve_market(plants, demands, k)
     model = Model(Gurobi.Optimizer)
