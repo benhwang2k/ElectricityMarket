@@ -107,6 +107,21 @@ function solve_market(plants, demands, k)
     return gen_values, price, profit, strategic_generation
 end
 
+function get_profit(plant, gen_values, startup_values)
+    profit = 0.0
+    strategic_generation = 0.0
+
+    for h in H
+	if plant.is_strategic
+	    strategic_generation += gen_values[i, h]
+	    #calculating profits from dual of demand constraint
+	    profit += (price[h] - plants[i].variable_cost) * gen_values[i, h] - 
+		startup_values[i, h] * plants[i].startup_cost
+	end
+    end
+    return profit
+end
+
 results = DataFrame(
     k = Float64[],
     avg_price = Float64[],
