@@ -1,0 +1,5 @@
+name,capacity,min_output,variable_cost,startup_cost,ramp_up,ramp_down,init_commit,init_gen,is_strategic
+P1,300,40,50,500,80,80,0,0,0
+P2,200,50,40,750,100,100,0,0,0
+P3,100,60,30,1000,120,120,0,0,0
+StrategicP,250,30,35,600,60,60,0,0,1
