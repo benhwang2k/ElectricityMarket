@@ -2,7 +2,7 @@ using .Market
 using CSV, DataFrames
 using Random
 ###
-# Add state, action, environmnet, reward 
+# Add state, action, environment, reward 
 #
 # state: locally cleared generation and price, also capacity and other internal variables
 # action: bid
@@ -37,20 +37,41 @@ end
 
 
 plants_df = CSV.read("MarkovDecisionProcess/data/plants.csv", DataFrame)
-plants = Market.PowerPlant[]
-for i in eachindex(plants_df.name)
+function load_plants()
+  plants = Market.PowerPlant[]
+  for i in eachindex(plants_df.name)
+    block_fracs = [
+      plants_df.block1_frac[i],
+      plants_df.block2_frac[i],
+      plants_df.block3_frac[i],
+    ]
+
+    block_costs = [
+      plants_df.block1_cost[i],
+      plants_df.block2_cost[i],
+      plants_df.block3_cost[i],
+    ]
+
+    if !isapprox(sum(block_fracs), 1.0; atol=1e-6)
+      error("Block fractions for $(plants_df.name[i]) must sum to 1.")
+    end
+
     push!(plants, Market.PowerPlant(
-        plants_df.name[i],
-        plants_df.capacity[i],
-        plants_df.min_output[i],
-        plants_df.variable_cost[i],
-        plants_df.startup_cost[i],
-        plants_df.ramp_up[i],
-        plants_df.ramp_down[i],
-        plants_df.init_commit[i],
-        plants_df.init_gen[i],
-        Bool(plants_df.is_strategic[i])
-    ))
+      plants_df.name[i],
+      plants_df.capacity[i],
+      plants_df.min_output[i],
+      plants_df.no_load_cost[i],
+      plants_df.startup_cost[i],
+      plants_df.ramp_up[i],
+      plants_df.ramp_down[i],
+      plants_df.init_commit[i],
+      plants_df.init_gen[i],
+      block_fracs,
+      block_costs,
+      plants_df.bid[i])
+    )
+  end
+  return plants
 end
 
 
@@ -66,13 +87,13 @@ function next_state(plants, state, new_demand)
   k = 1
   
   # solve
-  g, price, profit, one_strategic_gen = solve_market(plants, new_demand, k)
+  g, price = Market.solve_market(plants, [new_demand])
   next_state = State(g, price)  
 
   # plant controllable capacity (ie gas generation)
   # plus a stochastic renewable resource
   # storage term
-  gas_gen = [200, 300, 100, 250]
+  gas_gen = [300, 200, 100, 250]
   renew_gen = [100, 100, 100, 100]
   battery_cap = [100, 100, 100, 100]
   for i in 1:4 
@@ -115,26 +136,12 @@ end
 
 
 function simulate()
-  plants = Market.PowerPlant[]
-  for i in eachindex(plants_df.name)
-      push!(plants, Market.PowerPlant(
-	  plants_df.name[i],
-	  plants_df.capacity[i],
-	  plants_df.min_output[i],
-	  plants_df.variable_cost[i],
-	  plants_df.startup_cost[i],
-	  plants_df.ramp_up[i],
-	  plants_df.ramp_down[i],
-	  plants_df.init_commit[i],
-	  plants_df.init_gen[i],
-	  Bool(plants_df.is_strategic[i])
-      ))
-  end
+  plants = load_plants()
 
   # constant load
   demand = 300 
   # solve
-  g, price, profit, one_strategic_gen = solve_market(plants, demand, 1)
+  g, price, profits = Market.solve_market(plants, [demand])
   s = State(g, price)  
   state_array = [s]
   for t in 1:5
