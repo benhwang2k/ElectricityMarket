@@ -2,18 +2,23 @@ module Market
 using JuMP, Gurobi, CSV, DataFrames, Statistics
 export PowerPlant, solve_market #, get_profit
 
+
+
+# Might be interesting to also add minimum uptime, 
+# but this gets more complicated.
+
 mutable struct PowerPlant
-    name::String
-    capacity::Float64
-    min_output::Float64
-    no_load_cost::Float64
-    startup_cost::Float64
-    ramp_up::Float64
-    ramp_down::Float64
+    name::String # fixed
+    capacity::Float64 # STATE VARIABLE
+    min_output::Float64 # fixed
+    no_load_cost::Float64 # fixed
+    startup_cost::Float64 # fixed
+    ramp_up::Float64 # fixed
+    ramp_down::Float64 # fixed
     init_commit::Int
     init_gen::Float64
-    block_fracs::Vector{Float64}
-    block_costs::Vector{Float64}
+    block_fracs::Vector{Float64} # fixed
+    block_costs::Vector{Float64} # fixed
     bid::Float64
 end
 
@@ -61,7 +66,7 @@ function solve_market(plants, demands)
 
     #maybe include the startup edge cases, where ramp_up and ramp_down don't apply in that window, allowing for
     #generators to actaully start up if the min output is greater than their ramp up
-
+    # Ben: hmmm. that might be nice, but then we also have to worry about minimum up-time calculations and it all gets a bit more hairy. IDK how much easier is it if we just assume that ramp up >> min output?
     #ramping up and down constraints on generation
     @constraint(model, [i in I, h in H[2:end]], generation[i, h] - generation[i, h-1] <= plants[i].ramp_up)
     @constraint(model, [i in I, h in H[2:end]], generation[i, h-1] - generation[i, h] <= plants[i].ramp_down)
