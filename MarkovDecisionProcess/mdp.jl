@@ -1,3 +1,7 @@
+using Pkg 
+Pkg.activate(joinpath(@__DIR__, ".."))
+
+include("marketclear.jl")
 using .Market
 using CSV, DataFrames
 using Random
@@ -28,6 +32,7 @@ u = [false]*T
 mutable struct State
   gen::Matrix{Float64}
   price::Vector{Float64}
+  plants::Vector{PowerPlant}
 end
 
 
@@ -58,6 +63,7 @@ function load_plants()
 
     push!(plants, Market.PowerPlant(
       plants_df.name[i],
+      0.0, #state of charge starts at zero
       plants_df.capacity[i],
       plants_df.min_output[i],
       plants_df.no_load_cost[i],
@@ -78,26 +84,65 @@ end
 demands_df = CSV.read("MarketClearing/data/demand.csv", DataFrame)
 
 
-function next_state(plants, state, new_demand)
+function dispatch(plant, gen)
+  """
+  allocate the controllable, renewable, and battery resources
+  to provide generation = gen. Return the cost of doing so.
+
+  Also update the plant state variables
+  """
+  
+  return 1 
+end
+
+function real_time_execution(plant_ind, plants, g, price)
+  """
+  This function uses the plant to track the 
+  generation profile (g). The result is the 
+  profile of the plant's capacity as a function
+  of time as well as the profit of the plant.
+  """
+  
+  # Control law says how to choose between battery and generator
+  p = plants[plant_ind]
+  T = size(g)[2]
+
+  reward = 0 
+  for t in 1:T
+    # plant will supply the generation.-- update plant state and return reward
+    reward += dispatch(p, g[plant_ind, t])
+  end
+  return reward
+end
+
+
+
+# This function models both the market cleared, and the real-time execution 
+# of the cleared generation.
+function next_state(state, new_demand)
+  plants = state.plants
   if !(is_demand_feasible(plants, new_demand))
     print("demand not feasible")
     return state
   end
-  # capactiy of next day = cap of prev - gen + solar
+  
+  # Upper Level problem: optimize bid for day ahead market.
   k = 1
   
-  # solve
+  # Lower Level Problem: Market Clearing! 
   g, price = Market.solve_market(plants, [new_demand])
-  next_state = State(g, price)  
 
-  # plant controllable capacity (ie gas generation)
-  # plus a stochastic renewable resource
-  # storage term
-  gas_gen = [300, 200, 100, 250]
-  renew_gen = [100, 100, 100, 100]
-  battery_cap = [100, 100, 100, 100]
+  # Real-Time Execution
+  # Calculate the plant's real-time market capacity
+  rewards = []
   for i in 1:4 
-    plants[i].capacity = max(min(battery_cap[i], plants[i].capacity - gas_gen[i] -state.gen[i]),0) + renew_gen[i]*rand() + gas_gen[i] 
+    push!(rewards, sum(price[:].* g[i,:]) - real_time_execution(i, plants, g, price))
+  end
+  # Record the previous market data as a 'state' to transition from.
+  next_state = State(g, price, plants)  
+
+  # update the commitment and initial values of the plants for the next market 
+  for i in 1:4 
     if state.gen[i] > 0
       plants[i].init_commit = 1 
     else
@@ -105,7 +150,7 @@ function next_state(plants, state, new_demand)
     end
     plants[i].init_gen = state.gen[i] 
   end
-  return next_state
+  return next_state, rewards
 end
 
 
@@ -151,7 +196,7 @@ function simulate()
     print("t = ")
     print(t)
     println()
-    s = next_state(plants, s, demand)
+    s = next_state(s, demand)
     push!(state_array, s)
     print_cap(plants)
   end

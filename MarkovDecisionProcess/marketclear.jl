@@ -7,9 +7,13 @@ export PowerPlant, solve_market #, get_profit
 # Might be interesting to also add minimum uptime, 
 # but this gets more complicated.
 
+
+# Maybe we should have devices modeled: IE controllable gen (ramps, capacity, price etc.)
+# As well as renewable (peak capacity, stochasticity, cost etc).  not sure.
 mutable struct PowerPlant
     name::String # fixed
-    capacity::Float64 # STATE VARIABLE
+    soc:Float64 # STATE VARIABLE units: kWH
+    capacity::Float64 # fixed 
     min_output::Float64 # fixed
     no_load_cost::Float64 # fixed
     startup_cost::Float64 # fixed
@@ -125,8 +129,7 @@ function get_profit(plant, price, block_gen, startup_values)
     for h in H
 	    #calculating profits from dual of demand constraint
 	    profit += sum(price[h] - sum(block_gen[i, h, b] * plant.block_costs[b]))
-	end
-    return profit
+	end return profit
 end
 =#
 end
