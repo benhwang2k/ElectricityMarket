@@ -1,5 +1,5 @@
-name,capacity,min_output,no_load_cost,startup_cost,ramp_up,ramp_down,init_commit,init_gen,block1_frac,block1_cost,block2_frac,block2_cost,block3_frac,block3_cost,bid
-P1,300,40,50,500,80,80,0,0,0.4,45,0.3,55,0.3,75,1
-P2,200,50,40,750,100,100,0,0,0.4,35,0.3,45,0.3,65,1
-P3,100,60,30,1000,120,120,0,0,0.4,25,0.3,40,0.3,60,1
-StrategicP,250,30,35,600,60,60,0,0,0.4,35,0.3,50,0.3,80,1.2
+name,capacity,min_output,no_load_cost,startup_cost,shutdown_cost,min_up,min_down,ramp_up,ramp_down,init_status,init_gen,block1_frac,block1_cost,block2_frac,block2_cost,block3_frac,block3_cost,bid
+P1,300,40,50,500,300,2,2,80,80,-2,0,0.4,45,0.3,55,0.3,75,1
+P2,200,50,40,750,500,2,2,100,100,-2,0,0.4,35,0.3,45,0.3,65,1
+P3,100,60,30,1000,300,2,2,120,120,-2,0,0.4,25,0.3,40,0.3,60,1
+StrategicP,250,30,35,600,400,1,1,60,60,-1,0,0.4,35,0.3,50,0.3,80,1.2

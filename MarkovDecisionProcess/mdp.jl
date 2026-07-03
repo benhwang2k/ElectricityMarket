@@ -40,6 +40,11 @@ plants_df = CSV.read("MarkovDecisionProcess/data/plants.csv", DataFrame)
 function load_plants()
   plants = Market.PowerPlant[]
   for i in eachindex(plants_df.name)
+    init_commit = 0
+    if (plants_df.init_status[i] > 0)
+      init_commit = 1
+    end
+
     block_fracs = [
       plants_df.block1_frac[i],
       plants_df.block2_frac[i],
@@ -62,9 +67,13 @@ function load_plants()
       plants_df.min_output[i],
       plants_df.no_load_cost[i],
       plants_df.startup_cost[i],
+      plants_df.shutdown_cost[i],
+      plants_df.min_up[i],
+      plants_df.min_down[i],
       plants_df.ramp_up[i],
       plants_df.ramp_down[i],
-      plants_df.init_commit[i],
+      init_commit,
+      plants_df.init_status[i],
       plants_df.init_gen[i],
       block_fracs,
       block_costs,
@@ -78,7 +87,7 @@ end
 demands_df = CSV.read("MarketClearing/data/demand.csv", DataFrame)
 
 
-function next_state(plants, state, new_demand)
+function next_state(plants, new_demand)
   if !(is_demand_feasible(plants, new_demand))
     print("demand not feasible")
     return state
@@ -87,15 +96,50 @@ function next_state(plants, state, new_demand)
   k = 1
   
   # solve
-  g, price = Market.solve_market(plants, [new_demand])
-  next_state = State(g, price)  
+  g, price, commitment = Market.solve_market(plants, [new_demand])
+  
 
+  if g === nothing
+    println("market solve failed")
+    return nothing
+  end
+
+  next_state = State(g, price)  
   # plant controllable capacity (ie gas generation)
   # plus a stochastic renewable resource
   # storage term
   gas_gen = [300, 200, 100, 250]
   renew_gen = [100, 100, 100, 100]
   battery_cap = [100, 100, 100, 100]
+  for i in eachindex(plants)
+    current_gen = g[i, 1]
+    current_commit = round(Int, commitment[i, 1])
+
+    old_commit = plants[i].init_commit
+    old_status = plants[i].init_status
+
+    #update capacity using current gen
+    plants[i].capacity = max(min(battery_cap[i], plants[i].capacity - gas_gen[i] - current_gen), 0.0) + renew_gen[i] * rand() + gas_gen[i]
+
+    #update commitment and gen initial conditioon
+    plants[i].init_commit = current_commit
+    plants[i].init_gen = current_gen
+
+    if current_commit == 1
+      if old_commit == 1
+        plants[i].init_status = max(1, old_status + 1)
+      else
+        plants[i].init_status = 1
+      end
+    else
+      if old_commit == 0
+        plants[i].init_status = min(-1, old_status - 1)
+      else
+        plants[i].init_status = -1
+      end
+    end
+  end
+  #=
   for i in 1:4 
     plants[i].capacity = max(min(battery_cap[i], plants[i].capacity - gas_gen[i] -state.gen[i]),0) + renew_gen[i]*rand() + gas_gen[i] 
     if state.gen[i] > 0
@@ -104,7 +148,7 @@ function next_state(plants, state, new_demand)
       plants[i].init_commit = 0
     end
     plants[i].init_gen = state.gen[i] 
-  end
+  end =#
   return next_state
 end
 
@@ -137,24 +181,23 @@ end
 
 function simulate()
   plants = load_plants()
+  state_array = State[]
 
-  # constant load
-  demand = 300 
-  # solve
-  g, price, profits = Market.solve_market(plants, [demand])
-  s = State(g, price)  
-  state_array = [s]
   for t in 1:5
-    if t > 2
-      demand = 400
+    demand = t > 2 ? 400.0 : 300.0
+
+    println("t = ", t)
+
+    s = next_state(plants, demand)
+
+    if s === nothing
+        break
     end
-    print("t = ")
-    print(t)
-    println()
-    s = next_state(plants, s, demand)
+
     push!(state_array, s)
     print_cap(plants)
   end
+
   return state_array, plants
 end
 
